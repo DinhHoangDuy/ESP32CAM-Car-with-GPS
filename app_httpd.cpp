@@ -5,16 +5,21 @@
 #include "camera_index.h"
 #include "Arduino.h"
 
-extern int IN1;
-extern int IN2;
-extern int IN3;
-extern int IN4;
+// extern int IN1;
+// extern int IN2;
+// extern int IN3;
+// extern int IN4;
 extern int LED;
+bool receivedForward;
+bool receivedBackward;
+bool receivedLeft;
+bool receivedRight;
+bool receivedAutoMode;
 extern String WiFiAddr;
 
 bool isAutoMode = false; // false for Manual mode, true for Automatic mode
 
-void WheelAct(int V1, int V2, int V3, int V4);
+// void WheelAct(int V1, int V2, int V3, int V4);
 
 typedef struct {
         size_t size; 
@@ -304,33 +309,42 @@ static esp_err_t index_handler(httpd_req_t *req){
 }
 
 static esp_err_t go_handler(httpd_req_t *req){
-    WheelAct(HIGH, LOW, HIGH, LOW);
+    // WheelAct(HIGH, LOW, HIGH, LOW);
+    receivedForward = true;
     Serial.println("Go");
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, "OK", 2);
 }
 static esp_err_t back_handler(httpd_req_t *req){
-    WheelAct(LOW, HIGH, LOW, HIGH);
+    // WheelAct(LOW, HIGH, LOW, HIGH);
+    receivedBackward = true;
     Serial.println("Back");
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, "OK", 2);
 }
 
 static esp_err_t left_handler(httpd_req_t *req){
-    WheelAct(HIGH, LOW, LOW, HIGH);
+    // WheelAct(HIGH, LOW, LOW, HIGH);
+    receivedLeft = true;
     Serial.println("Left");
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, "OK", 2);
 }
 static esp_err_t right_handler(httpd_req_t *req){
-    WheelAct(LOW, HIGH, HIGH, LOW);
+    // WheelAct(LOW, HIGH, HIGH, LOW);
+    receivedRight = true;
     Serial.println("Right");
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, "OK", 2);
 }
 
 static esp_err_t stop_handler(httpd_req_t *req){
-    WheelAct(LOW, LOW, LOW, LOW);
+    // WheelAct(LOW, LOW, LOW, LOW);
+    receivedForward = false;
+    receivedBackward = false;
+    receivedLeft = false;
+    receivedRight = false;
+
     Serial.println("Stop");
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, "OK", 2);
@@ -350,16 +364,16 @@ static esp_err_t ledoff_handler(httpd_req_t *req){
     return httpd_resp_send(req, "OK", 2);
 }
 static esp_err_t automode_handler(httpd_req_t *req){
-    isAutoMode = true;
-    digitalWrite(LED, HIGH);
+    receivedAutoMode = true;
+    // digitalWrite(LED, HIGH);
     Serial.println("AUTO MODE");
     httpd_resp_set_type(req, "text/html");
     // return httpd_resp_send(req, "OK", 2);
     return ESP_OK;
 }
 static esp_err_t manualmode_handler(httpd_req_t *req){
-    isAutoMode = false;
-    digitalWrite(LED, LOW);
+    // digitalWrite(LED, LOW);
+    receivedAutoMode = false;
     Serial.println("MANUAL MODE");
     httpd_resp_set_type(req, "text/html");
     // return httpd_resp_send(req, "OK", 2);
@@ -491,10 +505,10 @@ void startCameraServer(){
     }
 }
 
-void WheelAct(int V1, int V2, int V3, int V4)
-{
- digitalWrite(IN1, V1);
- digitalWrite(IN2, V2);
- digitalWrite(IN3, V3);
- digitalWrite(IN4, V4);
-}
+// void WheelAct(int V1, int V2, int V3, int V4)
+// {
+//  digitalWrite(IN1, V1);
+//  digitalWrite(IN2, V2);
+//  digitalWrite(IN3, V3);
+//  digitalWrite(IN4, V4);
+// }
