@@ -1,82 +1,78 @@
-/* Blynk App*/
-#define BLYNK_TEMPLATE_ID "TMPL6Q7Mf3-P8"
-#define BLYNK_TEMPLATE_NAME "My ESP32 Cam"
-#define BLYNK_AUTH_TOKEN "nbqn65vCon3LMgfRn1W191HVtUz0jftT"
 /* ESP32 Camera Car */
 
 #include "esp_camera.h"
 #include <WiFi.h>
-
+#include <HardwareSerial.h>
 //=================ESPNow=================
-#include <esp_now.h>
-uint8_t peerAddress[] = {0x2C, 0xBC, 0xBB, 0x06, 0x92, 0x70};
-extern bool receivedForward;
-extern bool receivedBackward;
-extern bool receivedLeft;
-extern bool receivedRight;
-extern bool receivedAutoMode;
-// Structure to hold the data you want to send
-typedef struct struct_message {
-    bool forward;
-    bool backward;
-    bool left;
-    bool right;
-    bool autoMode;
-    int ledStatus;
-} struct_message;
+// #include <esp_now.h>
+// uint8_t peerAddress[] = { 0x2C, 0xBC, 0xBB, 0x06, 0x92, 0x70 };
+// extern bool receivedForward;
+// extern bool receivedBackward;
+// extern bool receivedLeft;
+// extern bool receivedRight;
+// extern bool receivedAutoMode;
+// // Structure to hold the data you want to send
+// typedef struct struct_message {
+//   bool forward;
+//   bool backward;
+//   bool left;
+//   bool right;
+//   bool autoMode;
+//   int ledStatus;
+// } struct_message;
 
-struct_message myData;
+// struct_message myData;
 
-// Callback function when data is sent
-void onDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
-    Serial.print("\r\nLast Packet Send Status:\t");
-    Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-}
+// // Callback function when data is sent
+// void onDataSent(const uint8_t* mac_addr, esp_now_send_status_t status) {
+//   Serial.print("\r\nLast Packet Send Status:\t");
+//   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+// }
 
 #define CAMERA_MODEL_AI_THINKER
 
-const char* ap_ssid = "ESP32-CAR";         // Tên Wifi
-const char* ap_password = "12345678";    // Mật khẩu của wifi
+const char* ap_ssid = "ESP32-CAR";     // Tên Wifi
+const char* ap_password = "12345678";  // Mật khẩu của wifi
 /* IP mặc định : 192.168.4.1 */
 
 #if defined(CAMERA_MODEL_WROVER_KIT)
-#define PWDN_GPIO_NUM    -1
-#define RESET_GPIO_NUM   -1
-#define XCLK_GPIO_NUM    21
-#define SIOD_GPIO_NUM    26
-#define SIOC_GPIO_NUM    27
+#define PWDN_GPIO_NUM -1
+#define RESET_GPIO_NUM -1
+#define XCLK_GPIO_NUM 21
+#define SIOD_GPIO_NUM 26
+#define SIOC_GPIO_NUM 27
 
-#define Y9_GPIO_NUM      35
-#define Y8_GPIO_NUM      34
-#define Y7_GPIO_NUM      39
-#define Y6_GPIO_NUM      36
-#define Y5_GPIO_NUM      19
-#define Y4_GPIO_NUM      18
-#define Y3_GPIO_NUM       5
-#define Y2_GPIO_NUM       4
-#define VSYNC_GPIO_NUM   25
-#define HREF_GPIO_NUM    23
-#define PCLK_GPIO_NUM    22
+#define Y9_GPIO_NUM 35
+#define Y8_GPIO_NUM 34
+#define Y7_GPIO_NUM 39
+#define Y6_GPIO_NUM 36
+#define Y5_GPIO_NUM 19
+#define Y4_GPIO_NUM 18
+#define Y3_GPIO_NUM 5
+#define Y2_GPIO_NUM 4
+#define VSYNC_GPIO_NUM 25
+#define HREF_GPIO_NUM 23
+#define PCLK_GPIO_NUM 22
 
 
 #elif defined(CAMERA_MODEL_AI_THINKER)
-#define PWDN_GPIO_NUM     32
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM      0
-#define SIOD_GPIO_NUM     26
-#define SIOC_GPIO_NUM     27
+#define PWDN_GPIO_NUM 32
+#define RESET_GPIO_NUM -1
+#define XCLK_GPIO_NUM 0
+#define SIOD_GPIO_NUM 26
+#define SIOC_GPIO_NUM 27
 
-#define Y9_GPIO_NUM       35
-#define Y8_GPIO_NUM       34
-#define Y7_GPIO_NUM       39
-#define Y6_GPIO_NUM       36
-#define Y5_GPIO_NUM       21
-#define Y4_GPIO_NUM       19
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM        5
-#define VSYNC_GPIO_NUM    25
-#define HREF_GPIO_NUM     23
-#define PCLK_GPIO_NUM     22
+#define Y9_GPIO_NUM 35
+#define Y8_GPIO_NUM 34
+#define Y7_GPIO_NUM 39
+#define Y6_GPIO_NUM 36
+#define Y5_GPIO_NUM 21
+#define Y4_GPIO_NUM 19
+#define Y3_GPIO_NUM 18
+#define Y2_GPIO_NUM 5
+#define VSYNC_GPIO_NUM 25
+#define HREF_GPIO_NUM 23
+#define PCLK_GPIO_NUM 22
 #else
 #error "Camera model not selected"
 #endif
@@ -89,9 +85,9 @@ const char* ap_password = "12345678";    // Mật khẩu của wifi
 // extern int EN = 12; /* Nối 2 chân ENA và ENB của L298N vào cùng 1 cổng GPIO của ESP32*/
 // //=================Đèn Flash=================
 // // TODO: Mở rộng qua Đèn hiệu trên xe (đèn hậu, đèn trước, đèn xi nhan)
-extern int LED =  4; /* Chân đèn LED ESP32 CAM = GPIO4 */
+extern int LED = 4; /* Chân đèn LED ESP32 CAM = GPIO4 */
 
-extern String WiFiAddr ="";
+extern String WiFiAddr = "";
 void startCameraServer();
 
 void setup() {
@@ -99,39 +95,39 @@ void setup() {
   Serial.setDebugOutput(true);
   Serial.println();
 
-//=================ESP NOW=================
-// Initialize WiFi (set to STA mode to use ESP-NOW)
-    WiFi.mode(WIFI_STA);
-    Serial.println("ESP-NOW Sender");
+  // //=================ESP NOW=================
+  // // Initialize WiFi (set to STA mode to use ESP-NOW)
+  // WiFi.mode(WIFI_STA);
+  // Serial.println("ESP-NOW Sender");
 
-    // Init ESP-NOW
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("Error initializing ESP-NOW");
-        return;
-    }
+  // // Init ESP-NOW
+  // if (esp_now_init() != ESP_OK) {
+  //   Serial.println("Error initializing ESP-NOW");
+  //   return;
+  // }
 
-    // Register the send callback
-    esp_now_register_send_cb(onDataSent);
+  // // Register the send callback
+  // esp_now_register_send_cb(onDataSent);
 
-    // Add the peer (receiver)
-    esp_now_peer_info_t peerInfo;
-    memcpy(peerInfo.peer_addr, peerAddress, 6);
-    peerInfo.channel = 0;  
-    peerInfo.encrypt = false;
+  // // Add the peer (receiver)
+  // esp_now_peer_info_t peerInfo;
+  // memcpy(peerInfo.peer_addr, peerAddress, 6);
+  // peerInfo.channel = 0;
+  // peerInfo.encrypt = false;
 
-    // Add peer
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-        Serial.println("Failed to add peer");
-        return;
-    }
+  // // Add peer
+  // if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+  //   Serial.println("Failed to add peer");
+  //   return;
+  // }
 
-  pinMode(LED, OUTPUT); 
+  pinMode(LED, OUTPUT);
 
   // /* Cấu hình các chân tín hiệu là ngõ ra */
-  // pinMode(IN1, OUTPUT); 
-  // pinMode(IN2, OUTPUT); 
-  // pinMode(IN3, OUTPUT); 
-  // pinMode(IN4, OUTPUT); 
+  // pinMode(IN1, OUTPUT);
+  // pinMode(IN2, OUTPUT);
+  // pinMode(IN3, OUTPUT);
+  // pinMode(IN4, OUTPUT);
   // pinMode(EN, OUTPUT);
   // analogWrite(EN, 150);
   /* Đưa các chân tín hiệu về mức LOW ( thấp ) để tắt */
@@ -162,7 +158,7 @@ void setup() {
   config.pin_reset = RESET_GPIO_NUM;
   config.xclk_freq_hz = 20000000;
   config.pixel_format = PIXFORMAT_JPEG;
-  if(psramFound()){
+  if (psramFound()) {
     config.frame_size = FRAMESIZE_UXGA;
     config.jpeg_quality = 10;
     config.fb_count = 2;
@@ -176,12 +172,12 @@ void setup() {
     Serial.printf("Camera init failed with error 0x%x", err);
     return;
   }
-  sensor_t * s = esp_camera_sensor_get();
+  sensor_t* s = esp_camera_sensor_get();
   s->set_vflip(s, 1);
   s->set_hmirror(s, 1);
   s->set_framesize(s, FRAMESIZE_CIF);
 
-/* Cấu hình module ESP32-CAM để chạy ở chế độ Acess Point */
+  /* Cấu hình module ESP32-CAM để chạy ở chế độ Acess Point */
   WiFi.softAP(ap_ssid, ap_password);
   IPAddress IP = WiFi.softAPIP();
   Serial.print("Access Point Started! Use 'http://");
@@ -189,26 +185,24 @@ void setup() {
   WiFiAddr = IP.toString();
   Serial.println("' to connect");
   startCameraServer();
-
-
 }
 
 void loop() {
-    // Fill the data structure with motor and LED status
-    myData.ledStatus = digitalRead(LED);    // Example: reading LED status
-    //=======================================
-    myData.forward  = receivedForward;
-    myData.backward = receivedBackward;
-    myData.left     = receivedLeft;
-    myData.right    = receivedRight;
-    myData.autoMode = receivedAutoMode;
-    // Send data to the receiver
-    esp_err_t result = esp_now_send(peerAddress, (uint8_t *)&myData, sizeof(myData));
+  // // Fill the data structure with motor and LED status
+  // myData.ledStatus = digitalRead(LED);  // Example: reading LED status
+  // //=======================================
+  // myData.forward = receivedForward;
+  // myData.backward = receivedBackward;
+  // myData.left = receivedLeft;
+  // myData.right = receivedRight;
+  // myData.autoMode = receivedAutoMode;
+  // // Send data to the receiver
+  // esp_err_t result = esp_now_send(peerAddress, (uint8_t*)&myData, sizeof(myData));
 
-    if (result == ESP_OK) {
-        Serial.println("Sent with success");
-    } else {
-        Serial.println("Error sending the data");
-    }
-    delay(50);
+  // if (result == ESP_OK) {
+  //   Serial.println("Sent with success");
+  // } else {
+  //   Serial.println("Error sending the data");
+  // }
+  // delay(50);
 }
