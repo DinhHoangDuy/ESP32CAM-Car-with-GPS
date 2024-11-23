@@ -5,18 +5,6 @@
 #include <TinyGPSPlus.h>
 #include <HardwareSerial.h>
 #include <HTTPClient.h>
-// Dùng HardwareSerial để đặt chân Pin TX và RX cho GPS
-static const int GPS_RXPin = 12, GPS_TXPin = 13;
-static const uint32_t GPSBaud = 9600;
-TinyGPSPlus gps;
-HardwareSerial mySerial(1);
-float lat = 0.0;
-float lng = 0.0;
-void displayInfo();
-// Đặt địa chỉ IP tĩnh
-IPAddress local_IP(192, 168, 67, 100); // Địa chỉ IP bạn muốn
-IPAddress gateway(192, 168, 67, 84);	// Địa chỉ gateway của router
-IPAddress subnet(255, 255, 255, 0);		// Địa chỉ subnet
 
 
 #define CAMERA_MODEL_AI_THINKER
@@ -62,14 +50,18 @@ IPAddress subnet(255, 255, 255, 0);		// Địa chỉ subnet
 #error "Camera model not selected"
 #endif
 extern int LED = 4; /* Chân đèn LED ESP32 CAM = GPIO4 */
+extern float latitude  = 0.0;
+extern float longitude = 0.0;
 
 extern String WiFiAddr = "";
 void startCameraServer();
 
+TinyGPSPlus gps;
+HardwareSerial gpsSerial(1);
+
 void setup()
 {
 	Serial.begin(115200);
-	mySerial.begin(GPSBaud, SERIAL_8N1, GPS_RXPin, GPS_TXPin);
 	Serial.println("/S");
 	Serial.setDebugOutput(true);
 	Serial.println();
@@ -121,11 +113,6 @@ void setup()
 	s->set_framesize(s, FRAMESIZE_CIF);
 
 	//========Kết nối tới Router chỉ định========
-	// Cấu hình IP tĩnh
-	if (!WiFi.config(local_IP, gateway, subnet))
-	{
-		Serial.println("Failed to set Static IP");
-	}
 	WiFi.begin(SECRET_SSID, SECRET_PASS);
 	// Chờ cho đến khi kết nối thành công
 	Serial.print("Connecting to WiFi");
@@ -153,78 +140,24 @@ void setup()
 	Serial.println("===========================");
 
 	Serial.println("The car is ready!!!");
+
+	gpsSerial.begin(9600, SERIAL_8N1, 12, 13); // RX, TX pins for GPS module
 }
 
 void loop()
 {
-	while (mySerial.available() > 0)
+	while (gpsSerial.available() > 0)
 	{
-		if (gps.encode(mySerial.read()))
-		{
-			displayInfo();
-		}
+		gps.encode(gpsSerial.read());
 	}
 
-	if (millis() > 5000 && gps.charsProcessed() < 10)
+	if (gps.location.isUpdated())
 	{
-		Serial.println(F("No GPS detected: check wiring."));
-		while (true);
+		latitude = gps.location.lat();
+		longitude = gps.location.lng();
+		Serial.print("Latitude= "); 
+		Serial.print(latitude, 6); 
+		Serial.print(" Longitude= "); 
+		Serial.println(longitude, 6);
 	}
-}
-
-void displayInfo()
-{
-	// Serial.print(F("Location: "));
-	if (gps.location.isValid())
-	{
-		lat = gps.location.lat();
-		lng = gps.location.lng();
-		// Serial.print(lat, 6);
-		// Serial.print(F(","));
-		// Serial.print(lng, 6);
-	}
-	else
-	{
-		// Serial.print(F("INVALID"));
-	}
-
-	// Serial.print(F("  Date/Time: "));
-	// if (gps.date.isValid())
-	// {
-	// 	Serial.print(gps.date.month());
-	// 	Serial.print(F("/"));
-	// 	Serial.print(gps.date.day());
-	// 	Serial.print(F("/"));
-	// 	Serial.print(gps.date.year());
-	// }
-	// else
-	// {
-	// 	Serial.print(F("INVALID"));
-	// }
-
-	// Serial.print(F(" "));
-	// if (gps.time.isValid())
-	// {
-	// 	if (gps.time.hour() < 10)
-	// 		Serial.print(F("0"));
-	// 	Serial.print(gps.time.hour());
-	// 	Serial.print(F(":"));
-	// 	if (gps.time.minute() < 10)
-	// 		Serial.print(F("0"));
-	// 	Serial.print(gps.time.minute());
-	// 	Serial.print(F(":"));
-	// 	if (gps.time.second() < 10)
-	// 		Serial.print(F("0"));
-	// 	Serial.print(gps.time.second());
-	// 	Serial.print(F("."));
-	// 	if (gps.time.centisecond() < 10)
-	// 		Serial.print(F("0"));
-	// 	Serial.print(gps.time.centisecond());
-	// }
-	// else
-	// {
-	// 	Serial.print(F("INVALID"));
-	// }
-
-	// Serial.println();
 }
