@@ -11,7 +11,6 @@ bool receivedForward;
 bool receivedBackward;
 bool receivedLeft;
 bool receivedRight;
-bool receivedAutoMode;
 extern String WiFiAddr;
 bool isAutoMode; // false for Manual mode, true for Automatic mode
 
@@ -83,8 +82,24 @@ static size_t jpg_encode_stream(void *arg, size_t index, const void *data, size_
 	j->len += len;
 	return len;
 }
+
+static void set_cors_headers(httpd_req_t *req)
+{
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	httpd_resp_set_hdr(req, "Access-Control-Allow-Headers", "Content-Type");
+	httpd_resp_set_hdr(req, "Referrer-Policy", "no-referrer");
+}
+
+static esp_err_t options_handler(httpd_req_t *req)
+{
+	set_cors_headers(req);
+	return httpd_resp_send(req, NULL, 0); // Không cần trả nội dung
+}
+
 static esp_err_t stream_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	camera_fb_t *fb = NULL;
 	esp_err_t res = ESP_OK;
 	size_t _jpg_buf_len = 0;
@@ -164,11 +179,6 @@ static esp_err_t stream_handler(httpd_req_t *req)
 		last_frame = fr_end;
 		frame_time /= 1000;
 		uint32_t avg_frame_time = ra_filter_run(&ra_filter, frame_time);
-		// Serial.printf("MJPG: %uB %ums (%.1ffps), AVG: %ums (%.1ffps)"
-		//     ,(uint32_t)(_jpg_buf_len),
-		//     (uint32_t)frame_time, 1000.0 / (uint32_t)frame_time,
-		//     avg_frame_time, 1000.0 / avg_frame_time
-		// );
 	}
 
 	last_frame = 0;
@@ -176,6 +186,7 @@ static esp_err_t stream_handler(httpd_req_t *req)
 }
 static esp_err_t cmd_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	char *buf;
 	size_t buf_len;
 	char variable[32] = {
@@ -287,6 +298,8 @@ static esp_err_t cmd_handler(httpd_req_t *req)
 
 static esp_err_t status_handler(httpd_req_t *req)
 {
+	Serial.println("Status handler called");
+	set_cors_headers(req);
 	static char json_response[1024];
 	sensor_t *s = esp_camera_sensor_get();
 	char *p = json_response;
@@ -321,50 +334,64 @@ static esp_err_t status_handler(httpd_req_t *req)
 	*p++ = '}';
 	*p++ = 0;
 	httpd_resp_set_type(req, "application/json");
-	httpd_resp_set_hdr(req, "Access-Control-Allow-Origin", "*");
+
 	return httpd_resp_send(req, json_response, strlen(json_response));
 }
-
 static esp_err_t index_handler(httpd_req_t *req)
 {
-    httpd_resp_set_type(req, "text/html");
-    String page = "";
-    page += "<!DOCTYPE html>\n";
-    page += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0\">\n";
-    page += "<link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />";
-    page += "<script>var xhttp = new XMLHttpRequest();</script>";
-    page += "<script>function getsend(arg) { xhttp.open('GET', arg +'?' + new Date().getTime(), true); xhttp.send() } </script>";
-    page += "<p align=center><IMG SRC='http://" + WiFiAddr + ":81/stream' style='width:300px; transform:rotate(180deg);'></p><br/><br/>";
-    page += "<p align=center> <button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('go') onmouseup=getsend('stop') ontouchstart=getsend('go') ontouchend=getsend('stop') ><b>TIEN</b></button> </p>";
-    page += "<p align=center>";
-    page += "<button style=background-color:lightgrey;width:90px;height:80px; onmousedown=getsend('left') onmouseup=getsend('stop') ontouchstart=getsend('left') ontouchend=getsend('stop')><b>TRAI</b></button>&nbsp;";
-    page += "<button style=background-color:indianred;width:90px;height:80px onmousedown=getsend('stop') onmouseup=getsend('stop')><b>DUNG</b></button>&nbsp;";
-    page += "<button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('right') onmouseup=getsend('stop') ontouchstart=getsend('right') ontouchend=getsend('stop')><b>PHAI</b></button>";
-    page += "</p>";
-    page += "<p align=center><button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('back') onmouseup=getsend('stop') ontouchstart=getsend('back') ontouchend=getsend('stop') ><b>LUI</b></button></p>";
-    page += "<p align=center>";
-    page += "<button style=background-color:yellow;width:200px;height:70px onmousedown=getsend('tongleheadlight')><b>Den Headlight</b></button>";
-    page += "<button style=background-color:yellow;width:200px;height:70px onclick=getsend('tongleautomode')><b>Auto Mode</b></button>";
-    page += "</p>";
-    page += "<p align=center><b>Latitude:</b> " + String(latitude, 6) + " <b>Longitude:</b> " + String(longitude, 6) + "</p>";
-    page += "<div id='map' style='width: 100%; height: 400px;'></div>";
-    page += "<script src='https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.js'></script>";
-    page += "<script>";
-    page += "var map = new atlas.Map('map', {";
-    page += "center: [-122.33, 47.6],";
-    page += "zoom: 12,";
-    page += "authOptions: {";
-    page += "authType: 'subscriptionKey',";
-    page += "subscriptionKey: '" + String(AZURE_MAPS_API) + "'";
-    page += "},";
-    page += "});";
-    page += "</script>";
+	httpd_resp_set_type(req, "text/html");
+	set_cors_headers(req);
+	String page = "";
+	page += "<!DOCTYPE html>\n";
+	page += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0\">\n";
+	page += "<link href='https://api.mapbox.com/mapbox-gl-js/v2.6.1/mapbox-gl.css' rel='stylesheet' />";
+	page += "<script>var xhttp = new XMLHttpRequest();</script>";
+	page += "<script>function getsend(arg) { xhttp.open('GET', arg +'?' + new Date().getTime(), true); xhttp.send() } </script>";
+	page += "<p align=center><IMG SRC='http://" + WiFiAddr + ":81/stream' style='width:300px; transform:rotate(180deg);'></p><br/><br/>";
+	page += "<p align=center> <button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('go') onmouseup=getsend('stop') ontouchstart=getsend('go') ontouchend=getsend('stop') ><b>TIEN</b></button> </p>";
+	page += "<p align=center>";
+	page += "<button style=background-color:lightgrey;width:90px;height:80px; onmousedown=getsend('left') onmouseup=getsend('stop') ontouchstart=getsend('left') ontouchend=getsend('stop')><b>TRAI</b></button>&nbsp;";
+	page += "<button style=background-color:indianred;width:90px;height:80px onmousedown=getsend('stop') onmouseup=getsend('stop')><b>DUNG</b></button>&nbsp;";
+	page += "<button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('right') onmouseup=getsend('stop') ontouchstart=getsend('right') ontouchend=getsend('stop')><b>PHAI</b></button>";
+	page += "</p>";
+	page += "<p align=center><button style=background-color:lightgrey;width:90px;height:80px onmousedown=getsend('back') onmouseup=getsend('stop') ontouchstart=getsend('back') ontouchend=getsend('stop') ><b>LUI</b></button></p>";
+	page += "<p align=center>";
+	// page += "<button style=background-color:yellow;width:200px;height:70px onmousedown=getsend('tongleheadlight')><b>Den Headlight</b></button>";
+	page += "<button style=background-color:yellow;width:200px;height:70px onclick=getsend('/tongleautomode')><b>Auto Mode</b></button>";
+	page += "</p>";
+	page += "<p align=center><b>Latitude:</b> <span id='latitude'>" + String(latitude, 6) + "</span> <b>Longitude:</b> <span id='longitude'>" + String(longitude, 6) + "</span></p>";
+	page += "<div id='map' style='width: 100%; height: 400px;'></div>";
+	page += "<script src='https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.js'></script>";
+	page += "<script>";
+	page += "var map = new atlas.Map('map', {";
+	page += "center: [-122.33, 47.6],";
+	page += "zoom: 12,";
+	page += "authOptions: {";
+	page += "authType: 'subscriptionKey',";
+	page += "subscriptionKey: '" + String(AZURE_MAPS_API) + "'";
+	page += "},";
+	page += "});";
+	page += "function updateLocation() {";
+	page += "  var xhr = new XMLHttpRequest();";
+	page += "  xhr.open('GET', '/status', true);";
+	page += "  xhr.onreadystatechange = function() {";
+	page += "    if (xhr.readyState == 4 && xhr.status == 200) {";
+	page += "      var response = JSON.parse(xhr.responseText);";
+	page += "      document.getElementById('latitude').innerText = response.latitude.toFixed(6);";
+	page += "      document.getElementById('longitude').innerText = response.longitude.toFixed(6);";
+	page += "    }";
+	page += "  };";
+	page += "  xhr.send();";
+	page += "}";
+	page += "setInterval(updateLocation, 1500);";
+	page += "</script>";
 
-    return httpd_resp_send(req, &page[0], strlen(&page[0]));
+	return httpd_resp_send(req, &page[0], strlen(&page[0]));
 }
 
 static esp_err_t go_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	// WheelAct(HIGH, LOW, HIGH, LOW);
 	receivedForward = true;
 	Serial.println("/F");
@@ -373,6 +400,7 @@ static esp_err_t go_handler(httpd_req_t *req)
 }
 static esp_err_t back_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	// WheelAct(LOW, HIGH, LOW, HIGH);
 	receivedBackward = true;
 	Serial.println("/B");
@@ -382,6 +410,7 @@ static esp_err_t back_handler(httpd_req_t *req)
 
 static esp_err_t left_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	// WheelAct(HIGH, LOW, LOW, HIGH);
 	receivedLeft = true;
 	Serial.println("/L");
@@ -390,6 +419,7 @@ static esp_err_t left_handler(httpd_req_t *req)
 }
 static esp_err_t right_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	// WheelAct(LOW, HIGH, HIGH, LOW);
 	receivedRight = true;
 	Serial.println("/R");
@@ -399,6 +429,7 @@ static esp_err_t right_handler(httpd_req_t *req)
 
 static esp_err_t stop_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	// WheelAct(LOW, LOW, LOW, LOW);
 	receivedForward = false;
 	receivedBackward = false;
@@ -410,34 +441,38 @@ static esp_err_t stop_handler(httpd_req_t *req)
 	return httpd_resp_send(req, "OK", 2);
 }
 
-static esp_err_t tongleheadlight_handler(httpd_req_t *req)
-{
-	bool isLEDOn = digitalRead(LED);
-	if (isLEDOn)
-	{
-		digitalWrite(LED, LOW);
-		Serial.println("LED OFF");
-	}
-	else
-	{
-		digitalWrite(LED, HIGH);
-		Serial.println("LED ON");
-	}
+// static esp_err_t tongleheadlight_handler(httpd_req_t *req)
+// {
+// 	set_cors_headers(req);
+// 	bool isLEDOn = digitalRead(LED);
+// 	if (isLEDOn)
+// 	{
+// 		digitalWrite(LED, LOW);
+// 		Serial.println("LED OFF");
+// 	}
+// 	else
+// 	{
+// 		digitalWrite(LED, HIGH);
+// 		Serial.println("LED ON");
+// 	}
 
-	httpd_resp_set_type(req, "text/html");
-	return httpd_resp_send(req, "OK", 2);
-}
+// 	httpd_resp_set_type(req, "text/html");
+// 	return httpd_resp_send(req, "OK", 2);
+// }
 static esp_err_t tongleautomode_handler(httpd_req_t *req)
 {
+	set_cors_headers(req);
 	if (isAutoMode == false)
 	{
 		isAutoMode = true;
 		Serial.println("/AUTO");
+		digitalWrite(LED, HIGH);
 	}
 	else
 	{
 		isAutoMode = false;
 		Serial.println("/MANUAL");
+		digitalWrite(LED, LOW);
 	}
 
 	httpd_resp_set_type(req, "text/html");
@@ -447,6 +482,7 @@ static esp_err_t tongleautomode_handler(httpd_req_t *req)
 void startCameraServer()
 {
 	httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+	config.uri_match_fn = httpd_uri_match_wildcard;
 
 	httpd_uri_t go_uri = {
 		.uri = "/go",
@@ -478,12 +514,13 @@ void startCameraServer()
 		.handler = right_handler,
 		.user_ctx = NULL};
 
-	httpd_uri_t tongleheadlight_uri = {
-		.uri = "/tongleheadlight",
-		.method = HTTP_GET,
-		.handler = tongleheadlight_handler,
-		.user_ctx = NULL};
-	httpd_uri_t automodeon_uri = {
+	// httpd_uri_t tongleheadlight_uri = {
+	// 	.uri = "/tongleheadlight",
+	// 	.method = HTTP_GET,
+	// 	.handler = tongleheadlight_handler,
+	// 	.user_ctx = NULL};
+
+	httpd_uri_t tongleautomode_uri = {
 		.uri = "/tongleautomode",
 		.method = HTTP_GET,
 		.handler = tongleautomode_handler,
@@ -496,7 +533,7 @@ void startCameraServer()
 		.user_ctx = NULL};
 
 	httpd_uri_t status_uri = {
-		.uri = "/status",
+		.uri = "/status*",
 		.method = HTTP_GET,
 		.handler = status_handler,
 		.user_ctx = NULL};
@@ -513,18 +550,26 @@ void startCameraServer()
 		.handler = stream_handler,
 		.user_ctx = NULL};
 
+	httpd_uri_t options_uri = {
+		.uri = "/*", // Áp dụng cho tất cả các URI
+		.method = HTTP_OPTIONS,
+		.handler = options_handler,
+		.user_ctx = NULL};
+
 	ra_filter_init(&ra_filter, 20);
 	Serial.printf("Starting web server on port: '%d'", config.server_port);
 	if (httpd_start(&camera_httpd, &config) == ESP_OK)
 	{
+		httpd_register_uri_handler(camera_httpd, &status_uri);
 		httpd_register_uri_handler(camera_httpd, &index_uri);
 		httpd_register_uri_handler(camera_httpd, &go_uri);
 		httpd_register_uri_handler(camera_httpd, &back_uri);
 		httpd_register_uri_handler(camera_httpd, &stop_uri);
 		httpd_register_uri_handler(camera_httpd, &left_uri);
 		httpd_register_uri_handler(camera_httpd, &right_uri);
-		httpd_register_uri_handler(camera_httpd, &tongleheadlight_uri);
-		httpd_register_uri_handler(camera_httpd, &automodeon_uri);
+		// httpd_register_uri_handler(camera_httpd, &tongleheadlight_uri);
+		httpd_register_uri_handler(camera_httpd, &tongleautomode_uri);
+		httpd_register_uri_handler(camera_httpd, &options_uri);
 	}
 
 	config.server_port += 1;
