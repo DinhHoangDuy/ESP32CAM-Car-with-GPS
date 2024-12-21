@@ -1,11 +1,12 @@
 /* ESP32 Camera Car */
-#include "esp_camera.h"
-#include <WiFi.h>
-#include "esp32_secret.h"
-#include <TinyGPSPlus.h>
-#include <HardwareSerial.h>
-#include <HTTPClient.h>
 
+// Include libraries
+#include "esp_camera.h" // Camera library
+#include <WiFi.h> // WiFi library
+#include "esp32_secret.h" // Library containing WiFi information
+#include <TinyGPSPlus.h> // GPS library
+#include <HardwareSerial.h>  // Serial library
+#include <HTTPClient.h> // HTTP library
 
 #define CAMERA_MODEL_AI_THINKER
 
@@ -29,6 +30,7 @@
 #define PCLK_GPIO_NUM 22
 
 #elif defined(CAMERA_MODEL_AI_THINKER)
+// Define GPIO pins for AI Thinker model
 #define PWDN_GPIO_NUM 32
 #define RESET_GPIO_NUM -1
 #define XCLK_GPIO_NUM 0
@@ -49,15 +51,17 @@
 #else
 #error "Camera model not selected"
 #endif
-extern int LED = 4; /* Chân đèn LED ESP32 CAM = GPIO4 */
-extern float latitude  = 0.0;
-extern float longitude = 0.0;
 
-extern String WiFiAddr = "";
+extern int LED = 4; /* ESP32 CAM FLASH LED pin = GPIO4 */
+extern float latitude  = 10.8231; // Variable to store latitude
+extern float longitude = 106.6297; // Variable to store longitude
+// Default coordinates of Ho Chi Minh City
+
+extern String WiFiAddr = ""; // Variable to store the IP address of ESP32 CAM
 void startCameraServer();
 
-TinyGPSPlus gps;
-HardwareSerial gpsSerial(1);
+TinyGPSPlus gps; // Declare GPS
+HardwareSerial gpsSerial(1); // Declare Serial for GPS
 
 void setup()
 {
@@ -68,6 +72,7 @@ void setup()
 	
 	pinMode(LED, OUTPUT);
 
+	//========Camera Configuration========
 	camera_config_t config;
 	config.ledc_channel = LEDC_CHANNEL_0;
 	config.ledc_timer = LEDC_TIMER_0;
@@ -107,45 +112,45 @@ void setup()
 		Serial.printf("Camera init failed with error 0x%x", err);
 		return;
 	}
-	sensor_t *s = esp_camera_sensor_get();
-	s->set_vflip(s, 1);
-	s->set_hmirror(s, 1);
-	s->set_framesize(s, FRAMESIZE_CIF);
+	sensor_t *s = esp_camera_sensor_get(); // Get camera sensor
+	s->set_vflip(s, 1); // Flip image vertically
+	s->set_hmirror(s, 1); // Flip image horizontally
+	s->set_framesize(s, FRAMESIZE_CIF); // Set frame size
 
-	//========Kết nối tới Router chỉ định========
+	//========Connect to specified Router========
 	WiFi.begin(SECRET_SSID, SECRET_PASS);
-	// Chờ cho đến khi kết nối thành công
+	// Wait until connection is successful
 	Serial.print("Connecting to WiFi");
 	while (WiFi.status() != WL_CONNECTED)
 	{
 		delay(500);
 		Serial.print(".");
 	}
-	// In địa chỉ IP của thiết bị lên Serial Monitor
+	// Print device IP address to Serial Monitor
 	Serial.println("\nConnected to WiFi");
-	WiFiAddr = WiFi.localIP().toString();
+	WiFiAddr = WiFi.localIP().toString(); // Get device IP address
 	Serial.println("STA IP Address: " + WiFiAddr);
-	// Serial.print("Use 'http://");
-	// Serial.print(WiFi.localIP());
-	// Serial.println("' to connect");
-	startCameraServer();
+	
+	startCameraServer(); // Start Camera Web Server
 	Serial.println("");
-	// Lấy và in địa chỉ Gateway
+	// Print network information
 	Serial.print("Gateway: ");
 	Serial.println(WiFi.gatewayIP());
 
-	// Lấy và in Subnet Mask
+	// Get and print Subnet Mask
 	Serial.print("Subnet Mask: ");
 	Serial.println(WiFi.subnetMask());
 	Serial.println("===========================");
 
 	Serial.println("The car is ready!!!");
 
-	gpsSerial.begin(9600, SERIAL_8N1, 12, 13); // RX, TX pins for GPS module
+	gpsSerial.begin(9600, SERIAL_8N1, 12, 13);
+	// Initialize GPS Serial, with baud rate 9600, RX pin 12, TX pin 13
 }
 
 void loop()
 {
+	// //=======GPS Module=======
 	while (gpsSerial.available() > 0)
 	{
 		gps.encode(gpsSerial.read());
@@ -153,9 +158,9 @@ void loop()
 
 	if (gps.location.isUpdated())
 	{
-		latitude = gps.location.lat();
-		longitude = gps.location.lng();
-		Serial.print("Latitude= "); 
+		latitude = gps.location.lat(); // Update latitude variable
+		longitude = gps.location.lng(); // Update longitude variable
+		Serial.print("Latitude= ");
 		Serial.print(latitude, 6); 
 		Serial.print(" Longitude= "); 
 		Serial.println(longitude, 6);
